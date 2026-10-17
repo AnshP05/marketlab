@@ -1,0 +1,10 @@
+#C++ build artifacts
+/build/
+/latency_stats/latency_stats
+
+#Temp files
+*.o
+*.out
+
+# VS Code editor files
+.vscode/
