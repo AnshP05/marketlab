@@ -8,4 +8,4 @@ cd "$(dirname "$0")/../latency_stats"
 g++ latency_stats.cpp -o latency_stats
 
 #Running our program
-./latency_stats
+./latency_stats "$1"
