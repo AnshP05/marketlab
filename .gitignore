@@ -8,3 +8,21 @@
 
 # VS Code editor files
 .vscode/
+
+# Python environments and generated caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Local databases and SQLite companion files
+*.db
+*.db-*
+*.sqlite*
+
+# Secrets; allow a safe example configuration
+.env
+.env.*
+!.env.example
+
+MarketLab_Codex_Starter_Kit.zip
