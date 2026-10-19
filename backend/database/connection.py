@@ -27,7 +27,7 @@ def init_db():
     try:
         connection.executescript(schema_txt)
         sql = "INSERT INTO accounts (name) VALUES (?);"
-        connection.execute(sql, ("Demo Brokerage",))
+        connection.execute(sql, ("Wells Fargo",))
         connection.commit()
         
     finally:
