@@ -11,7 +11,7 @@
         const data = await response.json();
         data_string = JSON.stringify(data);
         let names = "";
-        for (let i = 0; i < 2; ++i) {
+        for (let i = 0; i < data.accounts.length; ++i){
             names += data.accounts[i].name + ", ";
         }
         element.textContent = names;
