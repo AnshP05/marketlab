@@ -1,0 +1,21 @@
+<h1>Accounts</h1>
+<button id="load-accounts" type="button">Load Accounts</button>
+<p id="status">Accounts have not been loaded yet.</p>
+<ul id="accounts-list"></ul>
+<script>
+    // Async bc it is a network request so it returns a promise that it will deliver smtjh
+    async function loadAccounts() {
+        const element = document.getElementById("status");
+        element.textContent = "Loading";
+        const response = await fetch("api/v1/accounts");
+        const data = await response.json();
+        data_string = JSON.stringify(data);
+        let names = "";
+        for (let i = 0; i < 2; ++i) {
+            names += data.accounts[i].name + ", ";
+        }
+        element.textContent = names;
+    }
+
+    document.getElementById("load-accounts").addEventListener("click", loadAccounts)
+</script>
