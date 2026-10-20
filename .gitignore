@@ -26,3 +26,5 @@ __pycache__/
 !.env.example
 
 MarketLab_Codex_Starter_Kit.zip
+
+/docs
