@@ -19,3 +19,29 @@
 
     document.getElementById("load-accounts").addEventListener("click", loadAccounts)
 </script>
+
+<button id="open-holding">Open Hodling</button>
+<p id="open-holdings-list">No holdings yet</p>
+<script>
+    async function openHolding(){
+        const element = document.getElementById("open-holdings-list");
+        const response = await fetch("/api/v1/holdings/opening", {
+            method: "POST",
+            headers: {
+                "Content-Type" : "application/json",
+            },
+            body: JSON.stringify({
+                account_id: 2,
+                ticker: "AAPL",
+                quantity: "2.25"
+            })
+        });
+        const data = await response.json();
+        if (response.ok == true) {
+            element.textContent = data.position_id;
+        } else {
+            element.textContent = "Error: " + response.status + ". " + data.detail;
+        }        
+    }
+    document.getElementById("open-holding").addEventListener("click", openHolding);
+</script>
