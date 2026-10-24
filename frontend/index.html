@@ -20,7 +20,7 @@
     document.getElementById("load-accounts").addEventListener("click", loadAccounts)
 </script>
 
-<button id="open-holding">Open Hodling</button>
+<button id="open-holding">Open Holding</button>
 <p id="open-holdings-list">No holdings yet</p>
 <script>
     async function openHolding(){
@@ -31,9 +31,9 @@
                 "Content-Type" : "application/json",
             },
             body: JSON.stringify({
-                account_id: 2,
-                ticker: "AAPL",
-                quantity: "2.25"
+                account_id: 1,
+                ticker: "MSFT",
+                quantity: "1.2"
             })
         });
         const data = await response.json();
