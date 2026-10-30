@@ -71,6 +71,7 @@
             openingPositionsList.textContent = "";
             return;
         }
+        statusLabel.textContent = "";
         for (const opening of positions) {
             const item = document.createElement("li");
             item.textContent = "Account: " + opening.account_name + " Symbol: "
