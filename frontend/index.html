@@ -45,3 +45,39 @@
     }
     document.getElementById("open-holding").addEventListener("click", openHolding);
 </script>
+
+<button id="get-opening-positions">Get Openings</button>
+<p id="status-label">Not Loaded Yet</p>
+<ul id="opening-positions-list"></ul>
+<script>
+    async function getOpeningPositions(){
+        const statusLabel = document.getElementById("status-label");
+        const response = await fetch("/api/v1/holdings/opening-positions");
+        const data = await response.json();
+        // Return early if there was an error
+        if (response.ok == false) {
+            statusLabel.textContent = "Error: " + response.status + ". " + data.detail;
+            return;
+        }
+        const openingPositionsList = document.getElementById("opening-positions-list");
+        // Clear the list to prevent duplicates piling up
+        openingPositionsList.textContent = "";
+
+        // Get the array from the data json object and loop over it appending it to the list
+        const positions = data["opening-positions"];
+        // Check if the array is empty and return early 
+        if (positions.length === 0) {
+            statusLabel.textContent = "No opening positions yet.";
+            openingPositionsList.textContent = "";
+            return;
+        }
+        for (const opening of positions) {
+            const item = document.createElement("li");
+            item.textContent = "Account: " + opening.account_name + " Symbol: "
+                + opening.symbol + ": " + opening.shares + " shares";
+            openingPositionsList.appendChild(item);
+        }
+
+    }
+    document.getElementById("get-opening-positions").addEventListener("click", getOpeningPositions);
+</script>

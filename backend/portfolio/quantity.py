@@ -35,3 +35,16 @@ def convert_shares_to_millionths(shares) -> int:
         raise InvalidQuantityError("Quantity must be greater than zero.")
     
     return millionths
+
+def convert_millionths_to_shares(millionths) -> str: # LATER EXPAND TO TAKE IN AN ARRAY TO REDUCE REPEATED FUNCTION CALL OVERHEAD
+    # No input validation is really needed since the only function that will be calling this
+    # is the function that is recieving the data from the database
+    whole = str(millionths // 1000000)
+    remainder = millionths % 1000000
+    remainder = f"{remainder:06d}"
+    remainder = remainder.rstrip('0')
+
+    if not remainder == "":
+        return whole + "." + remainder
+    else:
+        return whole

@@ -10,6 +10,18 @@ router = APIRouter(prefix="/api/v1/holdings")
 def holdings():
     return {"holdings" : service.get_holdings()}
 
+@router.get("/opening-positions")
+def opening_positions():
+    try:
+        opening_positions_list = service.get_opening_positions()
+    except sqlite3.Error as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to load opening positions."
+        )
+    return {"opening-positions": opening_positions_list}
+
+
 @router.post("/opening", status_code=201)
 def open_holding(request: openHoldingRequest):
     #Parse the json req as of now we don't need an account since its all under one account
