@@ -68,9 +68,9 @@
         // Check if the array is empty and return early 
         if (positions.length === 0) {
             statusLabel.textContent = "No opening positions yet.";
-            openingPositionsList.textContent = "";
             return;
         }
+        // Clear the status label when we have a valid response
         statusLabel.textContent = "";
         for (const opening of positions) {
             const item = document.createElement("li");
