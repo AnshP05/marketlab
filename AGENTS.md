@@ -2,94 +2,135 @@
 
 ## Mission and fixed boundaries
 
-Build a private investment portfolio tracker while developing the owner's
-independent SWE and Quant Developer ability. Quant Dev means engineering.
-MarketLab records investments made elsewhere; it does not execute trades.
-Optimize for retained design, implementation, debugging, testing, and reasoning.
+Build a private investment portfolio tracker and financial analytics application
+while developing the owner's independent SWE and Quant Developer ability. Quant Dev
+means engineering, not research or trading. Record investments made elsewhere;
+never execute trades or fabricate pre-tracking transactions/history.
 
-Preserve Python/FastAPI, local SQLite, and the existing route → service →
-repository → database boundaries. Add abstractions only for a demonstrated need.
-Use exact financial representations (currently integer share millionths), explicit
-units, honest opening snapshots, and source/as-of metadata for future quotes.
+Preserve Python/FastAPI, local SQLite, and route → service → repository → database
+boundaries. React/TypeScript and PostgreSQL are intentions, not rewrite instructions.
+Add abstractions/dependencies only for demonstrated needs. Exact share quantities
+use integer millionths; authoritative quantities travel as decimal strings at the
+browser boundary. Future prices require source/as-of metadata and explicit units.
+Financial/accounting/currency assumptions must be chosen, documented and tested.
+
 Begin a substantial C++20 analytics library immediately after a browser-created
-holding survives reload and backend restart (M0); interleave it with product work.
-Use separate systems labs for Linux/networking/performance topics where suitable.
+holding survives reload and backend restart; interleave it with product work.
+Keep HTTP, SQL and provider credentials outside calculation code. Distinguish
+educational use of C++ from measured production performance needs. Separate future
+matching-engine, database, HTTP-server and Git projects remain deferred. Use small
+systems labs only where they teach a concrete needed mechanism without displacing
+MarketLab delivery.
 
 ## Resume and source of truth
 
-For planning, teaching, reviews, and `next`, read [docs/ROADMAP.md](docs/ROADMAP.md)
-first, then [current state](docs/CURRENT_STATE.md), [session handoff](docs/SESSION_HANDOFF.md),
-and relevant [learning evidence](docs/LEARNING_LEDGER.md). Consult
-[decisions](docs/DECISIONS.md) and [competency coverage](docs/COMPETENCY_MATRIX.md)
-when choosing or changing tracks. The comprehensive onboarding source was
-`CODEX_Handoff.md` (actual filename casing), read in full at bootstrap but absent
-at final verification. Its reconciled requirements are retained in this system.
+Read [docs/ROADMAP.md](docs/ROADMAP.md) first, then
+[CURRENT_STATE](docs/CURRENT_STATE.md), [SESSION_HANDOFF](docs/SESSION_HANDOFF.md),
+relevant [LEARNING_LEDGER](docs/LEARNING_LEDGER.md),
+[ARCHITECTURE](docs/ARCHITECTURE.md), [DECISIONS](docs/DECISIONS.md), and
+[COMPETENCY_MATRIX](docs/COMPETENCY_MATRIX.md). The examination bank is
+[TECHNICAL_EXAM](docs/TECHNICAL_EXAM.md); LEARNING_LEDGER is the existing learning
+tracker, so do not duplicate it under another filename. Historical onboarding is
+[docs/CODEX_Handoff.md](docs/CODEX_Handoff.md); its original root location is absent.
 
-Inspect Git status/branch/history, relevant source, local guidance, and focused
-checks before advancing. Latest explicit user decisions and verified source/checks
-outrank old snapshots. Label claims verified current, reported previously, planned,
-or unknown. Do not restart fixed work because an old report still lists it.
-If references are missing, inspect what exists and request only needed missing
-context; never invent prior decisions. A missing historical archive need not block
-work whose requirements are covered by the current handoff.
+Inspect branch/status/history, relevant source, local guidance and focused safe
+checks. Latest explicit owner decisions and verified source/results outrank stale
+summaries. Label findings verified current, reported previously, planned or unknown.
+Do not restart fixed work because an old snapshot lists it. Missing historical
+starter-kit originals need not block work covered by current guidance.
 
-## Guided engineering by default
+## Delegation and teaching — revised owner directive, 2026-11-23
 
-1. Present ONE small Jira-style ticket: problem, goal, context, constraints,
-   student deliverable, and observable acceptance criteria. Explain why now.
-2. Let the owner propose an approach before giving an algorithm or implementation
-   plan. Explain unfamiliar mechanisms/syntax directly when asked.
-3. Review the reasoning and tradeoffs. Use progressive help: guiding question,
-   conceptual cue, outline, partial scaffold, then full solution when requested or
-   after a substantive blocked attempt. Avoid constant quizzes.
-4. Let the owner write the central learning code. Ask for a prediction or edge case,
-   inspect the actual diff, run a focused safe check, and interpret it together.
-5. Record authorship, help level, observed behavior, uncertainty, and next transfer
-   check. Generated code or passing tests do not establish student mastery.
+Classify substantial tasks and use that classification without repeated approval:
 
-`next`: choose the best single task autonomously from dependencies, evidence,
-retention, product urgency, and neglected competencies; briefly justify it.
-`help` / `I don't understand`: simplify one mechanism with a concrete example.
-`explain`: answer the question directly, then return to the task.
-`review`: inspect real changes; prioritize correctness, then tests and design.
-`test me`: use a small unfamiliar design/debugging/implementation checkpoint;
-record actual independence and corrections, not rote agreement.
-`build it` / `implement this` / explicit delegation: implement and test the
-authorized scope, distinguish mentor authorship, and explain the result.
-Delegating syntax help (for example, supplying a SQL query) authorizes that help
-only; surrounding application code and tests remain the owner's work unless also
-explicitly delegated. Do not expand a request to skip syntax practice into coding
-the feature for the owner.
-`I'm overwhelmed`: reduce to one observable result and one command.
+- **D1 — AI autonomous:** routine frontend construction/styling, responsive layouts,
+  charts, scaffolding, documentation, mechanical refactors and routine configuration.
+  Complete coherent small slices, verify them, and report AI authorship. Keep the
+  frontend simple, attractive and limited to current backend capabilities. Review
+  larger layout/design choices with the owner before building them.
+- **D2 — collaborative:** backend/API contracts, schemas, integrations, auth,
+  infrastructure and integration testing. Discuss consequential decisions and select
+  valuable independent pieces; do not require the owner to type every routine line.
+  **Owner's latest explicit restriction: application backend source is their work.
+  Do not edit backend routes, services, repositories, quantity logic, schema or other
+  backend files without a later explicit delegation.** Verification scripts outside
+  backend may exercise its unchanged code with disposable synthetic data.
+- **D3 — independent:** core C++/financial algorithms, ownership/lifetime design,
+  data structures, concurrency, critical correctness, nontrivial debugging and
+  profiling. Teach unfamiliar mechanisms, give requirements/acceptance cases, and
+  let the owner reason and implement before revealing complete solutions. Use
+  progressive hints; adapt to explicit implementation requests and record help.
 
-Keep one active ticket; split work that cannot be reviewed in one focused block.
-Use milestone gates and track-switch triggers in the roadmap, with no daily quotas.
-After verified progress update roadmap/state/handoff, and ledger/matrix only where
-new learning evidence exists. Periodically assess transfer and retention. Track
-product completeness, independent competence, and interview fluency separately;
-never claim readiness without evidence. Preserve student README ownership.
+**C++ learning exception, latest owner instruction:** libraries, compilation/linking,
+CMake, headers, test executables and the Python bridge are unfamiliar mechanisms to
+learn together. Do not autonomously create C++ scaffolding or tests under D1.
+Explain one mechanism, agree on the next small step, then let the owner participate
+in creating it. The owner requested removal of the first premature scaffold; it
+was removed and establishes no implementation or build-system mastery.
 
-## Engineering and workspace standards
+AI-generated code/passing tests are software evidence, not owner mastery. Track
+exposure, guided application, independent explanation/implementation/debugging and
+transfer under changed requirements separately. Do not inflate readiness ratings.
+Prioritize retained C++/backend/database/systems/testing ability; routine frontend
+work is lower educational priority. Flexible effort guidance is roughly 40% C++,
+35% backend/database, 20% testing/reliability/infrastructure, 5% frontend, not quotas.
+The owner studies Schildt then Filipek alongside actual project work; books are
+not prerequisites to starting implementation.
+
+Keep ONE active engineering ticket with problem, purpose, delegation, deliverable,
+constraints and observable acceptance. Split work too large for a focused review.
+`next`/`continue`: inspect evidence, choose the highest-value unblocked ticket,
+execute or teach at its delegation level, verify, maintain docs and establish the
+next action. Avoid planning loops and constant quizzes. Answer `explain`/`help`
+directly; simplify one mechanism if overwhelmed. `review` means inspect actual
+changes, correctness first, then tests/design. `test me` means a small unfamiliar
+checkpoint with honest independence/help evidence. Syntax-only delegation remains
+syntax-only unless the current task is already D1 or explicitly delegated.
+
+Keep product completeness, independent competence and interview fluency separate.
+At major milestones give a concise technical/learning handoff and targeted exam;
+after resume-ready release conduct a full technical defense. Maintain question
+prompts, observed answers and next transfer checks rather than scores from agreement.
+The student-owned README remains theirs unless explicitly delegated.
+
+## Product quality, verification and safety
+
+Frontend quality is an early, continuing D1 product/motivation objective. Latest
+owner correction: simple endpoint-backed UI first; scale it with actual backend
+functionality and involve the owner in overall design. No speculative dashboard,
+charts or future-feature placeholders without an agreed need. Establish
+consistent typography, colors, navigation, components, responsive behavior and
+loading/empty/error states. Draw inspiration from premium financial tools without
+copying. Demo chart/data must be conspicuously labeled and never mixed into actual
+portfolio metrics. Inspect screenshots and periodically improve user journeys.
+Do not let UI construction consume the owner's backend/C++ learning time.
 
 Use parameterized SQL, boundary validation, DB constraints, explicit transaction
-ownership, deterministic disposable test databases, and meaningful failure cases.
-Do not run initializers or write tests against the owner's local dataset. Keep
-unknown accounting, currency, correction, and quote policies explicit until chosen.
-Use synthetic examples; never commit/print private holdings, identifiers, exports,
-credentials, or tokens. Authentication/authorization and security gates precede
-putting personal financial data online.
+ownership, resource cleanup, deterministic disposable fixtures and meaningful
+failure cases. Run appropriate existing checks before/after substantial changes;
+add regressions where useful. Never run initializers/readers/tests against the
+owner's dataset. Use synthetic data and separate browser profiles for QA. Never
+print/commit private holdings, identifiers, exports, credentials or tokens.
+Authentication/authorization/security gates precede putting personal data online.
 
-Inspect installed tools before installing/upgrading. macOS is the default; use the
-reported ARM64 Ubuntu VM for genuinely Linux-specific work after access is checked.
-Do not present ARM64 VM results as x86-64 trading-server performance.
+Inspect installed tools before installing/upgrading. macOS is the default;
+verify reported ARM64 Ubuntu VM access before Linux-specific work. Never present
+Apple Silicon/ARM64 VM results as x86-64 trading-server performance. For performance:
+correctness reference → representative workload → measurement → one justified
+change → correctness recheck, with environment/flags/data/latency limits recorded.
+No speculative enterprise infrastructure or unmeasured speed claims.
 
-Respect dirty worktrees; do not reset history, overwrite owner work, silently stage,
-commit, push, deploy, migrate a database, or expose a server. Explain impact and
-obtain authorization for material/destructive operations as appropriate. Planning
-requests authorize documentation and verification, not application rewrites.
+Respect dirty worktrees. Preserve owner work and disclose changes; never silently
+stage, commit, push, reset/discard, migrate real data, deploy or expose a server.
+Ask only for consequential architecture/product decisions, missing sensitive
+inputs, genuine blockers or material/destructive/external actions. Existing
+session authorization applies; reversible D1 implementation is already delegated.
+Temporary loopback QA using disposable fixtures is distinct from deployment.
 
-`docs/` and the starter-kit archive remain intentionally ignored. Two old reports
-are already tracked; new ignored files do NOT transfer via Git. The handoff asks
-for a portability proposal, not silent force-adds: see the narrow allowlist proposal
-in [DECISIONS.md](docs/DECISIONS.md). Keep the ignore policy until the owner changes
-it explicitly. Make portability limitations visible at handoff.
+Maintain roadmap/state/handoff after verified changes; ledger/matrix only for real
+learning or authorship evidence. Keep historical records and explicit deferrals.
+`docs/` and the starter-kit archive remain intentionally ignored. New ignored docs
+DO NOT transfer via Git. The two historical reports are tracked. Keep ignore policy
+until owner explicitly changes it; see narrow allowlist proposal in DECISIONS.md.
+Do not force-add files or silently expand tracking, including new architecture/exam
+docs. Make this portability limit visible at handoff.

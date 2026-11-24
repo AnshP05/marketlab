@@ -1,84 +1,275 @@
-<h1>Accounts</h1>
-<button id="load-accounts" type="button">Load Accounts</button>
-<p id="status">Accounts have not been loaded yet.</p>
-<ul id="accounts-list"></ul>
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>MarketLab · Opening positions</title>
+    <style>
+        :root { --ink:#19362b; --muted:#607268; --line:#dce5dd; --green:#286e50; --red:#a33030; }
+        * { box-sizing:border-box; }
+        body { margin:0; background:#f3f6f2; color:var(--ink); font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+        button,input,select { font:inherit; }
+        a { color:inherit; }
+        :focus-visible { outline:3px solid #65a985; outline-offset:3px; }
+        .skip { position:absolute; top:-70px; left:20px; background:white; padding:10px; }
+        .skip:focus { top:12px; }
+        header { background:var(--ink); color:white; }
+        .topbar { max-width:1200px; margin:auto; padding:20px 28px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+        .brand { display:flex; align-items:center; gap:10px; font-size:22px; font-weight:650; letter-spacing:-.7px; }
+        .brand-mark { width:32px; height:32px; border-radius:9px; background:#cee7b6; color:var(--ink); display:grid; place-items:center; }
+        .brand-mark svg { width:22px; height:22px; }
+        .local-label { color:#c5d9cc; font-size:14px; }
+        main { max-width:1200px; margin:auto; padding:38px 28px 24px; }
+        .intro { display:flex; justify-content:space-between; gap:20px; align-items:center; margin-bottom:26px; }
+        .eyebrow { font-size:12px; text-transform:uppercase; letter-spacing:1.5px; color:var(--green); font-weight:600; margin:0 0 7px; }
+        h1 { margin:0 0 8px; font-size:32px; letter-spacing:-1px; line-height:1.2; }
+        h2 { margin:0; font-size:18px; font-weight:600; letter-spacing:-.3px; }
+        p { margin:0; }
+        .subtext { font-size:14px; color:var(--muted); }
+        .count { display:inline-block; background:#e9f0e4; color:var(--green); border-radius:6px; padding:3px 9px; margin-left:7px; font-size:14px; font-weight:500; }
+        .panel { background:white; border:1px solid var(--line); border-radius:14px; min-width:0; overflow:hidden; }
+        .panel-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:22px; }
+        .panel-heading .subtext { margin-top:4px; }
+        .button { display:inline-flex; justify-content:center; align-items:center; border:1px solid var(--line); background:white; color:var(--ink); padding:9px 14px; border-radius:8px; cursor:pointer; font-size:14px; font-weight:500; white-space:nowrap; text-decoration:none; }
+        .button:hover { background:#edf3e9; }
+        .button:disabled { opacity:.55; cursor:default; }
+        .button.primary { background:var(--ink); color:white; border-color:var(--ink); }
+        .button.primary:hover { background:#2f5541; }
+        .accounts-list { list-style:none; display:flex; flex-wrap:wrap; gap:9px; margin:0; padding:0 22px 20px; }
+        .accounts-list li { background:#f2f6ef; border:1px solid var(--line); border-radius:8px; padding:9px 13px; font-size:14px; }
+        .accounts-status { padding:0 22px 16px; }
+        .workspace-grid { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(300px,1fr); gap:20px; align-items:start; margin-top:22px; }
+        select,input { font-size:14px; }
+        select,input[type="text"] { width:100%; min-width:0; border:1px solid #cedbcf; border-radius:8px; background:white; color:var(--ink); padding:11px 12px; }
+        select { appearance:none; padding-right:34px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23607268' stroke-width='1.5'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 11px center; }
+        select:disabled { background-color:#f3f6f2; }
+        .filter { max-width:165px; padding-top:8px; padding-bottom:8px; }
+        .table-scroll { overflow-x:auto; }
+        table { width:100%; min-width:560px; border-collapse:collapse; text-align:left; font-size:14px; }
+        th { font-size:12px; color:var(--muted); font-weight:500; background:#f5f8f3; border-block:1px solid var(--line); }
+        th,td { padding:14px 22px; }
+        td { border-bottom:1px solid #eaf0e7; }
+        th:last-child,td:last-child { text-align:right; }
+        .asset-cell { display:flex; align-items:center; gap:10px; }
+        .asset-icon { display:grid; place-items:center; width:33px; height:33px; flex-shrink:0; background:#edf3e8; border-radius:9px; color:var(--green); font-size:12px; font-weight:600; }
+        .symbol { font-weight:600; overflow-wrap:anywhere; }
+        .account-name { color:var(--muted); }
+        .quantity { white-space:nowrap; font:14px ui-monospace,SFMono-Regular,Consolas,monospace; font-variant-numeric:tabular-nums; }
+        .empty { color:var(--muted); padding:38px 22px; text-align:center; font-size:14px; }
+        .table-footer { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:15px 22px; color:var(--muted); font-size:12px; }
+        .form-body { padding:0 22px 22px; }
+        .field { display:grid; gap:7px; margin-bottom:17px; }
+        label { font-size:14px; font-weight:500; }
+        .field-hint { font-size:12px; color:var(--muted); }
+        .form-body .button { width:100%; }
+        .notice { border-top:1px solid var(--line); background:#f8faf6; padding:15px 22px; color:var(--muted); font-size:12px; }
+        .status { color:var(--muted); font-size:14px; }
+        .status:not(:empty) { margin-top:12px; }
+        .status[data-state="error"] { color:var(--red); }
+        .status[data-state="success"] { color:var(--green); }
+        footer { padding-top:22px; color:var(--muted); font-size:12px; }
+        .mobile-hint { display:none; }
+        [hidden] { display:none !important; }
+        @media (max-width:900px) { .workspace-grid { grid-template-columns:1fr; } }
+        @media (max-width:600px) { main { padding:26px 16px 20px; } .topbar { padding:18px 16px; } h1 { font-size:27px; } .intro,.panel-heading { align-items:flex-start; flex-wrap:wrap; } .panel-heading { padding:18px; } .accounts-list { padding-inline:18px; } .local-label { font-size:12px; } .mobile-hint { display:block; margin-top:5px; font-size:12px; } .form-body { padding-inline:18px; } }
+    </style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to holdings</a>
+<header><div class="topbar"><div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18V8l6 6 6-9 6 3v10"/></svg></span>MarketLab</div><span class="local-label">Your local portfolio workspace</span></div></header>
+<main id="main">
+    <div class="intro"><div><p class="eyebrow">A clear starting point</p><h1>Accounts &amp; holdings</h1><p class="subtext">Record what you own. Keep your opening positions in one place.</p></div><a class="button primary" href="#new-position">Add holding</a></div>
+    <section class="panel" aria-labelledby="accounts-title"><div class="panel-heading"><div><h2 id="accounts-title">Your accounts <span id="account-count" class="count">—</span></h2><p class="subtext">Choose one when adding a holding.</p></div><button id="load-accounts" class="button" type="button">Refresh accounts</button></div><p id="status" class="accounts-status status" role="status">Loading accounts…</p><ul id="accounts-list" class="accounts-list"></ul></section>
+    <div class="workspace-grid">
+        <section class="panel" aria-labelledby="positions-title">
+            <div class="panel-heading"><div><h2 id="positions-title">Opening positions <span id="position-count" class="count">—</span></h2><p class="subtext">Your saved starting quantities.<span class="mobile-hint">Scroll the table horizontally to see all columns.</span></p></div><select id="portfolio-account" class="filter" aria-label="Filter positions by account"><option value="">All accounts</option></select></div>
+            <div class="table-scroll"><table><caption hidden>Saved opening positions by asset, account and exact shares</caption><thead><tr><th scope="col">Asset</th><th scope="col">Account</th><th scope="col">Shares</th></tr></thead><tbody id="opening-positions-list"></tbody></table></div>
+            <div id="positions-empty" class="empty">Loading your opening positions…</div>
+            <div class="table-footer"><span id="positions-summary">Waiting for saved positions</span><button id="get-opening-positions" class="button" type="button">Refresh</button></div>
+            <p id="status-label" class="status" role="status" style="padding:0 22px 16px"></p>
+        </section>
+        <section class="panel" id="new-position" aria-labelledby="new-position-title">
+            <div class="panel-heading"><div><h2 id="new-position-title">Add an opening holding</h2><p class="subtext">An investment you already own.</p></div></div>
+            <form id="opening-form" class="form-body">
+                <div class="field"><label for="account-id">Investment account</label><select id="account-id" name="account_id" required disabled><option value="">Select an account</option></select></div>
+                <div class="field"><label for="ticker">Ticker symbol</label><input id="ticker" name="ticker" type="text" placeholder="e.g. AAPL" autocomplete="off" autocapitalize="characters" spellcheck="false" required></div>
+                <div class="field"><label for="quantity">Number of shares</label><input id="quantity" name="quantity" type="text" inputmode="decimal" placeholder="e.g. 2.25" autocomplete="off" required aria-describedby="quantity-hint"><p class="field-hint" id="quantity-hint">Up to 6 decimal places, including fractional shares.</p></div>
+                <button class="button primary" id="open-holding" type="submit" disabled>Save opening holding</button>
+                <p id="open-holdings-list" class="status" role="status"></p>
+            </form>
+            <p class="notice">Records an existing holding. No trade is placed.</p>
+        </section>
+    </div>
+    <footer>MarketLab · Records are stored locally. Prices and valuations are not connected.</footer>
+</main>
 <script>
-    // Async bc it is a network request so it returns a promise that it will deliver smtjh
+    // One page, same-origin requests. All authoritative share quantities stay as text here.
+    const accountSelect = document.getElementById("account-id");
+    const accountFilter = document.getElementById("portfolio-account");
+    const saveButton = document.getElementById("open-holding");
+    let openingPositions = [];
+    let positionsLoaded = false;
+    let saving = false;
+
+    function setStatus(id, message, state = "") {
+        const element = document.getElementById(id);
+        element.textContent = message;
+        element.dataset.state = state;
+    }
+
+    function httpError(response, data) {
+        let detail = data.detail;
+        if (Array.isArray(detail)) {
+            detail = detail.map(error => `${error.loc.at(-1)}: ${error.msg}`).join("; ");
+        }
+        return `Error ${response.status}: ${typeof detail === "string" ? detail : "The request could not be completed."}`;
+    }
+
     async function loadAccounts() {
-        const element = document.getElementById("status");
-        element.textContent = "Loading";
-        const response = await fetch("api/v1/accounts");
-        const data = await response.json();
-        data_string = JSON.stringify(data);
-        let names = "";
-        for (let i = 0; i < data.accounts.length; ++i){
-            names += data.accounts[i].name + ", ";
+        const refreshButton = document.getElementById("load-accounts");
+        const previousAccount = accountSelect.value;
+        const previousFilter = accountFilter.value;
+        refreshButton.disabled = true;
+        accountSelect.disabled = true;
+        saveButton.disabled = true;
+        setStatus("status", "Loading accounts…");
+        try {
+            const response = await fetch("/api/v1/accounts");
+            const data = await response.json();
+            if (!response.ok) throw new Error(httpError(response, data));
+            accountSelect.replaceChildren(new Option("Select an account", ""));
+            accountFilter.replaceChildren(new Option("All accounts", ""));
+            const list = document.getElementById("accounts-list");
+            list.replaceChildren();
+            for (const account of data.accounts) {
+                accountSelect.add(new Option(account.name, String(account.id)));
+                accountFilter.add(new Option(account.name, String(account.id)));
+                const item = document.createElement("li");
+                item.textContent = account.name;
+                list.appendChild(item);
+            }
+            if (data.accounts.some(account => String(account.id) === previousAccount)) accountSelect.value = previousAccount;
+            if (data.accounts.some(account => String(account.id) === previousFilter)) accountFilter.value = previousFilter;
+            const hasAccounts = data.accounts.length > 0;
+            accountSelect.disabled = !hasAccounts;
+            saveButton.disabled = !hasAccounts || saving;
+            document.getElementById("account-count").textContent = String(data.accounts.length);
+            setStatus("status", hasAccounts ? `${data.accounts.length} saved account${data.accounts.length === 1 ? "" : "s"}.` : "No accounts yet. An account must exist before you can record a holding.");
+            if (positionsLoaded) renderOpeningPositions();
+        } catch (error) {
+            document.getElementById("account-count").textContent = "—";
+            setStatus("status", error.message.startsWith("Error ") ? error.message : "Unable to load accounts. Try refreshing accounts.", "error");
+        } finally {
+            refreshButton.disabled = false;
         }
-        element.textContent = names;
     }
 
-    document.getElementById("load-accounts").addEventListener("click", loadAccounts)
-</script>
-
-<button id="open-holding">Open Holding</button>
-<p id="open-holdings-list">No holdings yet</p>
-<script>
-    async function openHolding(){
-        const element = document.getElementById("open-holdings-list");
-        const response = await fetch("/api/v1/holdings/opening", {
-            method: "POST",
-            headers: {
-                "Content-Type" : "application/json",
-            },
-            body: JSON.stringify({
-                account_id: 1,
-                ticker: "MSFT",
-                quantity: "1.2"
-            })
-        });
-        const data = await response.json();
-        if (response.ok == true) {
-            element.textContent = data.position_id;
-        } else {
-            element.textContent = "Error: " + response.status + ". " + data.detail;
-        }        
-    }
-    document.getElementById("open-holding").addEventListener("click", openHolding);
-</script>
-
-<button id="get-opening-positions">Get Openings</button>
-<p id="status-label">Not Loaded Yet</p>
-<ul id="opening-positions-list"></ul>
-<script>
-    async function getOpeningPositions(){
-        const statusLabel = document.getElementById("status-label");
-        const response = await fetch("/api/v1/holdings/opening-positions");
-        const data = await response.json();
-        // Return early if there was an error
-        if (response.ok == false) {
-            statusLabel.textContent = "Error: " + response.status + ". " + data.detail;
-            return;
-        }
-        const openingPositionsList = document.getElementById("opening-positions-list");
-        // Clear the list to prevent duplicates piling up
-        openingPositionsList.textContent = "";
-
-        // Get the array from the data json object and loop over it appending it to the list
-        const positions = data["opening-positions"];
-        // Check if the array is empty and return early 
-        if (positions.length === 0) {
-            statusLabel.textContent = "No opening positions yet.";
-            return;
-        }
-        // Clear the status label when we have a valid response
-        statusLabel.textContent = "";
+    function renderOpeningPositions() {
+        const list = document.getElementById("opening-positions-list");
+        list.replaceChildren();
+        const positions = openingPositions.filter(position => !accountFilter.value || String(position.account_id) === accountFilter.value);
         for (const opening of positions) {
-            const item = document.createElement("li");
-            item.textContent = "Account: " + opening.account_name + " Symbol: "
-                + opening.symbol + ": " + opening.shares + " shares";
-            openingPositionsList.appendChild(item);
+            const row = document.createElement("tr");
+            const asset = document.createElement("td");
+            const label = document.createElement("div");
+            label.className = "asset-cell";
+            const icon = document.createElement("span");
+            icon.className = "asset-icon";
+            icon.setAttribute("aria-hidden", "true");
+            icon.textContent = opening.symbol.slice(0, 2);
+            const symbol = document.createElement("span");
+            symbol.className = "symbol";
+            symbol.textContent = opening.symbol;
+            label.append(icon, symbol);
+            asset.appendChild(label);
+            const account = document.createElement("td");
+            account.className = "account-name";
+            account.textContent = opening.account_name;
+            const quantity = document.createElement("td");
+            quantity.className = "quantity";
+            quantity.textContent = opening.shares;
+            row.append(asset, account, quantity);
+            list.appendChild(row);
         }
-
+        const empty = document.getElementById("positions-empty");
+        empty.hidden = positions.length > 0;
+        empty.textContent = accountFilter.value ? "No opening positions in this account yet." : "No opening positions yet. Add your first holding to get started.";
+        document.getElementById("positions-summary").textContent = `${positions.length} opening position${positions.length === 1 ? "" : "s"} shown`;
     }
+
+    async function getOpeningPositions() {
+        const button = document.getElementById("get-opening-positions");
+        button.disabled = true;
+        setStatus("status-label", "Refreshing positions…");
+        try {
+            const response = await fetch("/api/v1/holdings/opening-positions");
+            const data = await response.json();
+            if (!response.ok) throw new Error(httpError(response, data));
+            openingPositions = data["opening-positions"];
+            positionsLoaded = true;
+            document.getElementById("position-count").textContent = String(openingPositions.length);
+            renderOpeningPositions();
+            setStatus("status-label", "");
+        } catch (error) {
+            // Existing rows, if any, are retained and explicitly marked as not refreshed.
+            setStatus("status-label", error.message.startsWith("Error ") ? `${error.message} Display has not been refreshed.` : "Unable to refresh positions. Display has not been refreshed.", "error");
+            if (document.getElementById("position-count").textContent === "—") {
+                document.getElementById("positions-empty").textContent = "Saved positions could not be loaded. Try Refresh.";
+            }
+        } finally {
+            button.disabled = false;
+        }
+    }
+
+    async function openHolding(event) {
+        event.preventDefault();
+        if (saving || accountSelect.disabled) return;
+        const form = document.getElementById("opening-form");
+        if (!form.reportValidity()) return;
+        const accountId = Number(accountSelect.value);
+        const ticker = document.getElementById("ticker").value.trim();
+        const quantity = document.getElementById("quantity").value;
+        if (!accountSelect.value || !Number.isSafeInteger(accountId) || accountId <= 0 || !ticker) {
+            setStatus("open-holdings-list", "Select an account and enter a ticker symbol.", "error");
+            return;
+        }
+        if (!/^[0-9]+(?:\.[0-9]{1,6})?$/.test(quantity) || !/[1-9]/.test(quantity)) {
+            setStatus("open-holdings-list", "Enter a positive share quantity with up to 6 decimal places, such as 2.25.", "error");
+            return;
+        }
+        saving = true;
+        saveButton.disabled = true;
+        saveButton.textContent = "Saving…";
+        setStatus("open-holdings-list", "Saving your opening holding…");
+        try {
+            const response = await fetch("/api/v1/holdings/opening", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ account_id: accountId, ticker, quantity })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                setStatus("open-holdings-list", httpError(response, data), "error");
+                return;
+            }
+            setStatus("open-holdings-list", `Opening holding saved (reference ${data.position_id}).`, "success");
+            await getOpeningPositions();
+        } catch (error) {
+            setStatus("open-holdings-list", "Could not confirm the save. Refresh positions before trying again.", "error");
+        } finally {
+            saving = false;
+            saveButton.disabled = accountSelect.disabled;
+            saveButton.textContent = "Save opening holding";
+        }
+    }
+
+    document.getElementById("load-accounts").addEventListener("click", loadAccounts);
     document.getElementById("get-opening-positions").addEventListener("click", getOpeningPositions);
+    document.getElementById("opening-form").addEventListener("submit", openHolding);
+    accountFilter.addEventListener("change", renderOpeningPositions);
+    loadAccounts();
+    getOpeningPositions();
 </script>
+</body>
+</html>
