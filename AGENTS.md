@@ -14,7 +14,7 @@ use integer millionths; authoritative quantities travel as decimal strings at th
 browser boundary. Future prices require source/as-of metadata and explicit units.
 Financial/accounting/currency assumptions must be chosen, documented and tested.
 
-Begin a substantial C++20 analytics library immediately after a browser-created
+Begin a substantial C++17 analytics library immediately after a browser-created
 holding survives reload and backend restart; interleave it with product work.
 Keep HTTP, SQL and provider credentials outside calculation code. Distinguish
 educational use of C++ from measured production performance needs. Separate future
