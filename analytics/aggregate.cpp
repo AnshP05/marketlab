@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <stdexcept>
 #include <limits>
+#include <cassert>
 
 std::vector<Holding> aggregate (const std::vector<Holding>& holdings) {
     std::unordered_map<std::string, std::uint64_t> map;
