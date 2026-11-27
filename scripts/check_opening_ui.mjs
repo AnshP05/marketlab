@@ -183,11 +183,93 @@ with sqlite3.connect(sys.argv[1]) as connection:
     await evaluate(`globalThis.fetch=originalFetch; document.getElementById('get-opening-positions').click(); document.getElementById('ticker').value=''; document.getElementById('quantity').value=''`);
     await until(`document.getElementById('status-label').textContent===''`);
     console.log('PASS: non-JSON read, pending double-submit protection and ambiguous-save feedback.');
+    // Exercise the account feature against the real API and disposable database.
+    await evaluate(`globalThis.accountPosts=[];
+        globalThis.fetch=(url,options)=>{
+            if(url==='/api/v1/accounts' && options?.method==='POST') accountPosts.push(JSON.parse(options.body));
+            return originalFetch(url,options);
+        };
+        document.getElementById('account-name').value='   ';
+        document.getElementById('account-form').requestSubmit();`);
+    assert.match(await evaluate(`document.getElementById('account-create-status').textContent`), /more than spaces/);
+    assert.equal(await evaluate(`accountPosts.length`), 0);
+    await evaluate(`document.getElementById('portfolio-account').value='7';
+        document.getElementById('account-name').value='  Synthetic Long-term  ';
+        document.getElementById('account-form').requestSubmit();`);
+    await until(`document.getElementById('account-create-status').dataset.state==='success' && !document.getElementById('create-account').disabled`);
+    assert.deepEqual(await evaluate(`accountPosts`), [{ name: 'Synthetic Long-term' }]);
+    assert.equal(await evaluate(`document.getElementById('account-count').textContent`), '3');
+    assert.equal(await evaluate(`document.getElementById('portfolio-account').value`), '7');
+    assert.equal(await evaluate(`document.getElementById('account-id').selectedOptions[0].textContent`), 'Synthetic Long-term');
+    const createdAccountId = await evaluate(`document.getElementById('account-id').value`);
+    assert.equal(await evaluate(`document.getElementById('account-name').value`), '');
+    await evaluate(`document.getElementById('account-name').value='sYnThEtIc LoNg-TeRm'; document.getElementById('account-form').requestSubmit()`);
+    await until(`!document.getElementById('create-account').disabled`);
+    assert.match(await evaluate(`document.getElementById('account-create-status').textContent`), /Error 409.*duplicate/i);
+    assert.equal(await evaluate(`document.getElementById('account-name').value`), 'sYnThEtIc LoNg-TeRm');
+    await enter(createdAccountId, 'SYNTHNEW', '1.000001');
+    await until(`document.getElementById('position-count').textContent==='4'`);
+    await evaluate(`document.getElementById('portfolio-account').value=''; document.getElementById('portfolio-account').dispatchEvent(new Event('change'))`);
+    assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#opening-positions-list tr'),row=>Array.from(row.cells,cell=>cell.textContent)).at(-1)`), ['SYSYNTHNEW', 'Synthetic Long-term', '1.000001']);
+    console.log('PASS: blank-name precheck, exact POST payload, case-insensitive duplicate feedback, refreshed selectors and holding in new account.');
+
+    await evaluate(`globalThis.fetch=(url,options)=>{
+        if(url==='/api/v1/accounts' && !options?.method) return Promise.reject(new TypeError('Synthetic read failure'));
+        return originalFetch(url,options);
+    };
+    document.getElementById('account-name').value='Synthetic Reserve'; document.getElementById('account-form').requestSubmit();`);
+    await until(`!document.getElementById('create-account').disabled`);
+    assert.match(await evaluate(`document.getElementById('account-create-status').textContent`), /Account created. Refresh accounts/);
+    assert.ok(await evaluate(`document.getElementById('account-id').disabled`));
+    await evaluate(`globalThis.fetch=originalFetch; document.getElementById('load-accounts').click()`);
+    await until(`document.getElementById('account-count').textContent==='4'`);
+    await evaluate(`globalThis.fetch=()=>{globalThis.pendingAccountSaves=(globalThis.pendingAccountSaves||0)+1;return new Promise((accept,reject)=>globalThis.rejectAccountSave=reject)};
+        document.getElementById('account-name').value='Synthetic Pending';
+        document.getElementById('account-form').requestSubmit(); document.getElementById('account-form').requestSubmit();`);
+    assert.equal(await evaluate(`pendingAccountSaves`), 1);
+    assert.ok(await evaluate(`document.getElementById('account-name').readOnly && document.getElementById('create-account').disabled`));
+    await evaluate(`rejectAccountSave(new TypeError('Synthetic lost response'))`);
+    await until(`!document.getElementById('create-account').disabled`);
+    assert.match(await evaluate(`document.getElementById('account-create-status').textContent`), /Refresh accounts before trying again/);
+    assert.equal(await evaluate(`pendingAccountSaves`), 1, 'Failed POST must not be automatically retried');
+    await evaluate(`globalThis.fetch=originalFetch; globalThis.beforeAccountReload=true`);
+    await cdp('Page.reload', { ignoreCache: true });
+    await until(`globalThis.beforeAccountReload===undefined && document.getElementById('account-count')?.textContent==='4' && document.getElementById('position-count')?.textContent==='4'`);
+    const accountProcessId = server.process.pid;
+    await stop(server.process);
+    server = await startBackend();
+    assert.notEqual(server.process.pid, accountProcessId);
+    await evaluate(`globalThis.beforeAccountRestart=true`);
+    await cdp('Page.navigate', { url: server.address });
+    await until(`globalThis.beforeAccountRestart===undefined && document.getElementById('account-count')?.textContent==='4' && document.getElementById('position-count')?.textContent==='4'`);
+    assert.equal(await evaluate(`Array.from(document.getElementById('account-id').options).find(option=>option.value===${JSON.stringify(createdAccountId)})?.textContent`), 'Synthetic Long-term');
+    execFileSync(python, ['-B', '-c', `
+import sqlite3,sys
+with sqlite3.connect(sys.argv[1]) as connection:
+    assert connection.execute('SELECT name FROM accounts ORDER BY id').fetchall()==[('Synthetic Brokerage',),('Synthetic Retirement',),('Synthetic Long-term',),('Synthetic Reserve',)]
+    assert connection.execute('SELECT quantity_micros FROM opening_positions ORDER BY id').fetchall()==[(2250000,), (1,), (9223372036854775807,), (1000001,)]
+`, database]);
+    console.log('PASS: create/read-failure distinction, pending-submit guard, ambiguous-save feedback, new account/holding browser reload and real backend restart.');
     await screenshot('desktop.png');
     await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
     assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), 'Page overflows mobile viewport');
     await screenshot('mobile.png');
     console.log('PASS: failed-read recovery and desktop/mobile viewport checks.');
+    // Empty workspace uses this same disposable fixture, never the owner's database.
+    execFileSync(python, ['-B', '-c', `
+import sqlite3,sys
+with sqlite3.connect(sys.argv[1]) as connection:
+    connection.execute('DELETE FROM opening_positions')
+    connection.execute('DELETE FROM accounts')
+`, database]);
+    await evaluate(`globalThis.beforeEmptyReload=true`);
+    await cdp('Page.reload', { ignoreCache: true });
+    await until(`globalThis.beforeEmptyReload===undefined && document.getElementById('account-count')?.textContent==='0'`);
+    assert.ok(await evaluate(`document.getElementById('open-holding').disabled && !document.getElementById('create-account').disabled`));
+    await evaluate(`document.getElementById('account-name').value='Synthetic First'; document.getElementById('account-form').requestSubmit()`);
+    await until(`document.getElementById('account-create-status').dataset.state==='success' && !document.getElementById('open-holding').disabled`);
+    assert.equal(await evaluate(`document.getElementById('account-id').selectedOptions[0].textContent`), 'Synthetic First');
+    console.log('PASS: first-account creation from an empty workspace enables the holding form.');
     console.log('All data was synthetic. No application backend source or portfolio database was modified.');
 } finally {
     if (socket) socket.close();

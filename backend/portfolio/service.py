@@ -1,6 +1,7 @@
-from repository.accounts import list_accounts
+from repository.accounts import list_accounts, open_account as insert_account
 from portfolio.quantity import convert_shares_to_millionths, convert_millionths_to_shares
 from repository.holdings import insert_opening_position_in_database, list_opening_positions
+from portfolio.errors import InvalidAccountNameError, InvalidQuantityError
 
 def get_holdings():
     return []
@@ -26,3 +27,9 @@ def get_opening_positions():
                                     "shares": convert_millionths_to_shares(quantity_micros)
                                 })
     return opening_positions
+
+def open_account(name):
+    clean_name = name.strip()
+    if not clean_name:
+        raise InvalidAccountNameError("Account name cannot be blank")
+    return insert_account(clean_name)

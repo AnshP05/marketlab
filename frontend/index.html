@@ -38,7 +38,14 @@
         .button.primary:hover { background:#2f5541; }
         .accounts-list { list-style:none; display:flex; flex-wrap:wrap; gap:9px; margin:0; padding:0 22px 20px; }
         .accounts-list li { background:#f2f6ef; border:1px solid var(--line); border-radius:8px; padding:9px 13px; font-size:14px; }
+        .accounts-list li { max-width:100%; overflow-wrap:anywhere; }
         .accounts-status { padding:0 22px 16px; }
+        .account-create { padding:18px 22px 20px; border-top:1px solid var(--line); background:#f8faf6; }
+        .account-create-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:12px; }
+        .account-create .field { margin:0; }
+        .account-create .button { min-height:45px; }
+        .account-create .field-hint { margin-top:8px; }
+        input[readonly] { background:#f3f6f2; color:var(--muted); }
         .workspace-grid { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(300px,1fr); gap:20px; align-items:start; margin-top:22px; }
         select,input { font-size:14px; }
         select,input[type="text"] { width:100%; min-width:0; border:1px solid #cedbcf; border-radius:8px; background:white; color:var(--ink); padding:11px 12px; }
@@ -73,6 +80,7 @@
         [hidden] { display:none !important; }
         @media (max-width:900px) { .workspace-grid { grid-template-columns:1fr; } }
         @media (max-width:600px) { main { padding:26px 16px 20px; } .topbar { padding:18px 16px; } h1 { font-size:27px; } .intro,.panel-heading { align-items:flex-start; flex-wrap:wrap; } .panel-heading { padding:18px; } .accounts-list { padding-inline:18px; } .local-label { font-size:12px; } .mobile-hint { display:block; margin-top:5px; font-size:12px; } .form-body { padding-inline:18px; } }
+        @media (max-width:600px) { .account-create { padding-inline:18px; } .account-create-row { grid-template-columns:1fr; } }
     </style>
 </head>
 <body>
@@ -80,7 +88,19 @@
 <header><div class="topbar"><div class="brand"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18V8l6 6 6-9 6 3v10"/></svg></span>MarketLab</div><span class="local-label">Your local portfolio workspace</span></div></header>
 <main id="main">
     <div class="intro"><div><p class="eyebrow">A clear starting point</p><h1>Accounts &amp; holdings</h1><p class="subtext">Record what you own. Keep your opening positions in one place.</p></div><a class="button primary" href="#new-position">Add holding</a></div>
-    <section class="panel" aria-labelledby="accounts-title"><div class="panel-heading"><div><h2 id="accounts-title">Your accounts <span id="account-count" class="count">—</span></h2><p class="subtext">Choose one when adding a holding.</p></div><button id="load-accounts" class="button" type="button">Refresh accounts</button></div><p id="status" class="accounts-status status" role="status">Loading accounts…</p><ul id="accounts-list" class="accounts-list"></ul></section>
+    <section class="panel" aria-labelledby="accounts-title">
+        <div class="panel-heading"><div><h2 id="accounts-title">Your accounts <span id="account-count" class="count">—</span></h2><p class="subtext">Choose one when adding a holding.</p></div><button id="load-accounts" class="button" type="button">Refresh accounts</button></div>
+        <p id="status" class="accounts-status status" role="status">Loading accounts…</p>
+        <ul id="accounts-list" class="accounts-list"></ul>
+        <form id="account-form" class="account-create" aria-label="Create an investment account">
+            <div class="account-create-row">
+                <div class="field"><label for="account-name">Add an account</label><input id="account-name" name="name" type="text" placeholder="e.g. Long-term investing" autocomplete="off" required aria-describedby="account-name-hint account-create-status"></div>
+                <button id="create-account" class="button primary" type="submit">Create account</button>
+            </div>
+            <p id="account-name-hint" class="field-hint">Give it a unique name. This creates a local record, without connecting to your bank.</p>
+            <p id="account-create-status" class="status" role="status"></p>
+        </form>
+    </section>
     <div class="workspace-grid">
         <section class="panel" aria-labelledby="positions-title">
             <div class="panel-heading"><div><h2 id="positions-title">Opening positions <span id="position-count" class="count">—</span></h2><p class="subtext">Your saved starting quantities.<span class="mobile-hint">Scroll the table horizontally to see all columns.</span></p></div><select id="portfolio-account" class="filter" aria-label="Filter positions by account"><option value="">All accounts</option></select></div>
@@ -111,6 +131,9 @@
     let openingPositions = [];
     let positionsLoaded = false;
     let saving = false;
+    let creatingAccount = false;
+    let accountsLoading = false;
+    let accountsLoadVersion = 0;
 
     function setStatus(id, message, state = "") {
         const element = document.getElementById(id);
@@ -126,7 +149,9 @@
         return `Error ${response.status}: ${typeof detail === "string" ? detail : "The request could not be completed."}`;
     }
 
-    async function loadAccounts() {
+    async function loadAccounts(preferredAccountId = null) {
+        const version = ++accountsLoadVersion;
+        accountsLoading = true;
         const refreshButton = document.getElementById("load-accounts");
         const previousAccount = accountSelect.value;
         const previousFilter = accountFilter.value;
@@ -137,6 +162,7 @@
         try {
             const response = await fetch("/api/v1/accounts");
             const data = await response.json();
+            if (version !== accountsLoadVersion) return false;
             if (!response.ok) throw new Error(httpError(response, data));
             accountSelect.replaceChildren(new Option("Select an account", ""));
             accountFilter.replaceChildren(new Option("All accounts", ""));
@@ -149,7 +175,8 @@
                 item.textContent = account.name;
                 list.appendChild(item);
             }
-            if (data.accounts.some(account => String(account.id) === previousAccount)) accountSelect.value = previousAccount;
+            const selection = preferredAccountId === null ? previousAccount : String(preferredAccountId);
+            if (data.accounts.some(account => String(account.id) === selection)) accountSelect.value = selection;
             if (data.accounts.some(account => String(account.id) === previousFilter)) accountFilter.value = previousFilter;
             const hasAccounts = data.accounts.length > 0;
             accountSelect.disabled = !hasAccounts;
@@ -157,11 +184,70 @@
             document.getElementById("account-count").textContent = String(data.accounts.length);
             setStatus("status", hasAccounts ? `${data.accounts.length} saved account${data.accounts.length === 1 ? "" : "s"}.` : "No accounts yet. An account must exist before you can record a holding.");
             if (positionsLoaded) renderOpeningPositions();
+            return true;
         } catch (error) {
+            if (version !== accountsLoadVersion) return false;
             document.getElementById("account-count").textContent = "—";
             setStatus("status", error.message.startsWith("Error ") ? error.message : "Unable to load accounts. Try refreshing accounts.", "error");
+            return false;
         } finally {
-            refreshButton.disabled = false;
+            if (version === accountsLoadVersion) {
+                accountsLoading = false;
+                refreshButton.disabled = creatingAccount;
+            }
+        }
+    }
+
+    async function createAccount(event) {
+        event.preventDefault();
+        if (creatingAccount) return;
+        const form = document.getElementById("account-form");
+        const input = document.getElementById("account-name");
+        const button = document.getElementById("create-account");
+        if (!form.reportValidity()) return;
+        const name = input.value.trim();
+        if (!name) {
+            input.setAttribute("aria-invalid", "true");
+            setStatus("account-create-status", "Enter an account name, using more than spaces.", "error");
+            input.focus();
+            return;
+        }
+        input.removeAttribute("aria-invalid");
+        creatingAccount = true;
+        form.setAttribute("aria-busy", "true");
+        input.readOnly = true;
+        button.disabled = true;
+        button.textContent = "Creating…";
+        document.getElementById("load-accounts").disabled = true;
+        setStatus("account-create-status", "Creating your account…");
+        try {
+            const response = await fetch("/api/v1/accounts", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                if (response.status === 409 || response.status === 422) input.setAttribute("aria-invalid", "true");
+                setStatus("account-create-status", httpError(response, data), "error");
+                return;
+            }
+            if (!Number.isSafeInteger(data.account_id) || data.account_id <= 0) throw new Error("Unconfirmed account identity");
+            input.value = "";
+            const refreshed = await loadAccounts(data.account_id);
+            setStatus("account-create-status", refreshed
+                ? "Account created and selected. You can add an opening holding below."
+                : "Account created. Refresh accounts to load it before adding a holding.", refreshed ? "success" : "");
+        } catch (error) {
+            // A lost response can follow a committed write. Never automatically retry POST.
+            setStatus("account-create-status", "Could not confirm account creation. Refresh accounts before trying again.", "error");
+        } finally {
+            creatingAccount = false;
+            form.removeAttribute("aria-busy");
+            input.readOnly = false;
+            button.disabled = false;
+            button.textContent = "Create account";
+            document.getElementById("load-accounts").disabled = accountsLoading;
         }
     }
 
@@ -264,7 +350,12 @@
         }
     }
 
-    document.getElementById("load-accounts").addEventListener("click", loadAccounts);
+    document.getElementById("load-accounts").addEventListener("click", () => loadAccounts());
+    document.getElementById("account-form").addEventListener("submit", createAccount);
+    document.getElementById("account-name").addEventListener("input", event => {
+        event.target.removeAttribute("aria-invalid");
+        setStatus("account-create-status", "");
+    });
     document.getElementById("get-opening-positions").addEventListener("click", getOpeningPositions);
     document.getElementById("opening-form").addEventListener("submit", openHolding);
     accountFilter.addEventListener("change", renderOpeningPositions);

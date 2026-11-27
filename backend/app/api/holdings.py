@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from portfolio.errors import InvalidQuantityError
 from portfolio import service
-from app.api_requests import openHoldingRequest
+from app.api_requests import OpenHoldingRequest
 import sqlite3
 
 router = APIRouter(prefix="/api/v1/holdings")
@@ -23,7 +23,7 @@ def opening_positions():
 
 
 @router.post("/opening", status_code=201)
-def open_holding(request: openHoldingRequest):
+def open_holding(request: OpenHoldingRequest):
     #Parse the json req as of now we don't need an account since its all under one account
     # We would need what brokerage(i.e. Wells Fargo, Robinhood), stock ticker(i.e. MSFT, AAPL)
     # timestamp(we can abstract to future for now), buy price, shares

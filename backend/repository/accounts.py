@@ -11,3 +11,14 @@ def list_accounts():
         return accounts_records
     finally:
         close_connection(connection)
+
+def open_account(account_name):
+    connection = get_connection()
+    try:
+        sql = """INSERT INTO accounts (name) VALUES (?);"""
+        cursor = connection.execute(sql, (account_name,))
+        connection.commit()
+        return cursor.lastrowid
+
+    finally:
+        close_connection(connection)
