@@ -49,6 +49,11 @@ from pathlib import Path
 from database import connection
 connection.database_path = Path(sys.argv[1])
 from app.main import app
+# Test-only provider fixture. Never load a real key or contact Finnhub.
+import os, io
+from integrations import finnhub
+os.environ['FINNHUB_API_KEY'] = 'synthetic-test-key'
+finnhub.urlopen = lambda request, timeout: io.BytesIO(b'{"c":12.34567890123456789,"t":1767225600}')
 import uvicorn
 uvicorn.run(app, host='127.0.0.1', port=0, log_level='info')
 `;
@@ -131,7 +136,7 @@ with sqlite3.connect(sys.argv[1]) as connection:
     await until(`document.getElementById('position-count').textContent==='2'`);
     await enter('2', 'MAXQTY', '9223372036854.775807');
     await until(`document.getElementById('position-count').textContent==='3'`);
-    const rows = await evaluate(`Array.from(document.querySelectorAll('#opening-positions-list tr'),row=>Array.from(row.cells,cell=>cell.textContent))`);
+    const rows = await evaluate(`Array.from(document.querySelectorAll('#opening-positions-list tr'),row=>Array.from(row.cells).filter(cell=>!cell.hasAttribute("data-quote-cell")).map(cell=>cell.textContent))`);
     assert.deepEqual(rows, [['SYSYNTHA', 'Synthetic Brokerage', '2.25'], ['MAMAXQTY', 'Synthetic Brokerage', '9223372036854.775807'], ['MIMICRO', 'Synthetic Retirement', '0.000001']]);
     console.log('PASS: page-load accounts; selected IDs; exact submitted quantities through real POST/GET/SQLite.');
     await enter('2', 'SYNTHA', '2.25');
@@ -210,7 +215,7 @@ with sqlite3.connect(sys.argv[1]) as connection:
     await enter(createdAccountId, 'SYNTHNEW', '1.000001');
     await until(`document.getElementById('position-count').textContent==='4'`);
     await evaluate(`document.getElementById('portfolio-account').value=''; document.getElementById('portfolio-account').dispatchEvent(new Event('change'))`);
-    assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#opening-positions-list tr'),row=>Array.from(row.cells,cell=>cell.textContent)).at(-1)`), ['SYSYNTHNEW', 'Synthetic Long-term', '1.000001']);
+    assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#opening-positions-list tr'),row=>Array.from(row.cells).filter(cell=>!cell.hasAttribute("data-quote-cell")).map(cell=>cell.textContent)).at(-1)`), ['SYSYNTHNEW', 'Synthetic Long-term', '1.000001']);
     console.log('PASS: blank-name precheck, exact POST payload, case-insensitive duplicate feedback, refreshed selectors and holding in new account.');
 
     await evaluate(`globalThis.fetch=(url,options)=>{
@@ -250,6 +255,68 @@ with sqlite3.connect(sys.argv[1]) as connection:
     assert connection.execute('SELECT quantity_micros FROM opening_positions ORDER BY id').fetchall()==[(2250000,), (1,), (9223372036854775807,), (1000001,)]
 `, database]);
     console.log('PASS: create/read-failure distinction, pending-submit guard, ambiguous-save feedback, new account/holding browser reload and real backend restart.');
+    // Frontend-only redesign: navigation/demo charts never request future APIs.
+    await evaluate(`globalThis.navigationRequests=[];globalThis.chartOriginalFetch=fetch;
+        globalThis.fetch=(...args)=>{navigationRequests.push(args[0]);return chartOriginalFetch(...args)};
+        document.querySelector('[data-nav="accounts"]').click()`);
+    assert.equal(await evaluate(`document.getElementById('page-title').textContent`), 'Investment accounts');
+    assert.ok(await evaluate(`document.querySelector('[data-views="overview accounts"]').hidden===false && document.querySelector('.metrics').hidden`));
+    await evaluate(`document.querySelector('[data-nav="holdings"]').click()`);
+    assert.ok(await evaluate(`!document.getElementById('opening-form').closest('[data-views]').hidden`));
+    for (const view of ['activity', 'reports', 'settings']) {
+        await evaluate(`document.querySelector('[data-nav="${view}"]').click()`);
+        assert.match(await evaluate(`document.querySelector('[data-views="${view}"]').textContent`), /planned|not available|not connected/i);
+    }
+    await evaluate(`document.querySelector('[data-nav="overview"]').click()`);
+    await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+    const beforeRange = await evaluate(`document.getElementById('chart-line').getAttribute('d')`);
+    await evaluate(`document.querySelector('[data-range="1M"]').click()`);
+    assert.notEqual(await evaluate(`document.getElementById('chart-line').getAttribute('d')`), beforeRange);
+    await evaluate(`document.getElementById('chart-scrubber').focus()`);
+    await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 });
+    await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 });
+    assert.equal(await evaluate(`document.getElementById('chart-scrubber').value`), '46');
+    assert.match(await evaluate(`document.getElementById('chart-scrubber').getAttribute('aria-valuetext')`), /Synthetic.*not your portfolio/);
+    await evaluate(`document.getElementById('toggle-demo').click()`);
+    assert.ok(await evaluate(`document.getElementById('demo-chart-body').hidden && !document.getElementById('chart-unavailable').hidden`));
+    await evaluate(`document.getElementById('toggle-demo').click(); document.querySelector('[data-range="1Y"]').click(); document.activeElement.blur()`);
+    assert.match(await evaluate(`document.getElementById('chart-title').parentElement.parentElement.textContent`), /Synthetic data only/);
+    assert.equal(await evaluate(`document.querySelector('.metric-value').textContent`), '—', 'Demo must not populate real portfolio value');
+    assert.equal(await evaluate(`document.getElementById('overview-accounts').textContent`), '4');
+    assert.equal(await evaluate(`document.getElementById('overview-positions').textContent`), '4');
+    assert.deepEqual(await evaluate(`navigationRequests`), []);
+    await evaluate(`globalThis.fetch=chartOriginalFetch`);
+    console.log('PASS: navigation/future states, keyboard chart exploration/ranges, reduced motion and explicit synthetic/actual separation; no future endpoint requests.');
+    // Actual quote route/integration with the test-only HTTP provider above.
+    await enter('7', 'SYNTHA', '0.000001');
+    await until(`document.getElementById('position-count').textContent==='5'`);
+    const savedRows = await evaluate(`document.getElementById('opening-positions-list').querySelectorAll('.quantity').length`);
+    await evaluate(`globalThis.quoteRequests=[];globalThis.quoteOriginalFetch=fetch;
+        globalThis.fetch=(url,options)=>{if(String(url).startsWith('/api/v1/live-quotes?'))quoteRequests.push(String(url));return quoteOriginalFetch(url,options)};
+        document.querySelector('[data-quote-symbol="SYNTHA"]').click();
+        document.querySelector('[data-quote-symbol="SYNTHA"]').click()`);
+    await until(`document.getElementById('quote-status').dataset.state==='success'`);
+    assert.equal(await evaluate(`quoteRequests.length`),1);
+    assert.equal(await evaluate(`new URL(quoteRequests[0],location.origin).searchParams.get('symbol')`),'SYNTHA');
+    assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('[data-quote-cell="SYNTHA"] .quote-price'),e=>e.textContent)`),['USD 12.34567890123456789','USD 12.34567890123456789']);
+    assert.match(await evaluate(`document.querySelector('[data-quote-cell="SYNTHA"] .quote-meta').textContent`),/Finnhub.*As of/);
+    await evaluate(`quoteRequests=[];document.getElementById('refresh-all-prices').click()`);
+    await until(`!document.getElementById('refresh-all-prices').disabled`);
+    assert.equal(await evaluate(`quoteRequests.length`),4,'One request per unique ticker across accounts');
+    assert.match(await evaluate(`document.getElementById('quote-status').textContent`),/4 updated, 0 unavailable/);
+    assert.equal(await evaluate(`document.querySelectorAll('.quote-price').length`),savedRows);
+    assert.equal(await evaluate(`document.querySelector('.metric-value').textContent`),'—','Prices must not invent portfolio valuation');
+    await evaluate(`globalThis.fetch=async()=>new Response('synthetic non-JSON error',{status:500});document.querySelector('[data-quote-symbol="SYNTHA"]').click()`);
+    await until(`document.getElementById('quote-status').dataset.state==='error'`);
+    assert.match(await evaluate(`document.querySelector('[data-quote-cell="SYNTHA"] .quote-error').textContent`),/Showing previous quote/);
+    assert.equal(await evaluate(`document.querySelector('[data-quote-cell="SYNTHA"] .quote-price').textContent`),'USD 12.34567890123456789');
+    await evaluate(`globalThis.rateRequests=0;globalThis.fetch=async()=>{rateRequests++;return new Response('rate limit',{status:429})};document.getElementById('refresh-all-prices').click()`);
+    await until(`!document.getElementById('refresh-all-prices').disabled`);
+    assert.equal(await evaluate(`rateRequests`),1,'Stop batch after rate limit, no retries');
+    await evaluate(`globalThis.fetch=quoteOriginalFetch;document.getElementById('refresh-all-prices').click()`);
+    await until(`!document.getElementById('refresh-all-prices').disabled`);
+    assert.equal(await evaluate(`document.querySelectorAll('.quantity').length`),savedRows);
+    console.log('PASS: real quote route with synthetic provider, exact price strings/as-of, shared ticker snapshots, deduplicated batch, stale-quote/error feedback and quota stop; no valuation invented.');
     await screenshot('desktop.png');
     await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
     assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), 'Page overflows mobile viewport');

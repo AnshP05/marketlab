@@ -3,3 +3,6 @@ class InvalidQuantityError(ValueError):
 
 class InvalidAccountNameError(ValueError):
     pass
+
+class FinnHubAPIError(ValueError):
+    pass
