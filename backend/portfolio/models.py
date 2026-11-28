@@ -10,3 +10,17 @@ class Quote:
     currency : str
     as_of : datetime
     source : str
+
+@dataclass
+class Holding:
+    symbol : str
+    position_id : int
+    quantity_micros : int
+
+@dataclass
+class HoldingValue:
+    symbol : str
+    value : Decimal
+    currency : str
+    as_of : datetime
+    source : str

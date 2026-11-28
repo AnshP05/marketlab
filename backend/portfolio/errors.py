@@ -6,3 +6,5 @@ class InvalidAccountNameError(ValueError):
 
 class FinnHubAPIError(ValueError):
     pass
+class InvalidPositionIdError(ValueError):
+    pass

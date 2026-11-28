@@ -1,19 +1,21 @@
 from fastapi import APIRouter, HTTPException
-from portfolio.errors import InvalidQuantityError
-from portfolio import service
+from portfolio.errors import InvalidQuantityError, InvalidPositionIdError, FinnHubAPIError
+from portfolio.service import get_holding, get_accounts, get_holding_value, get_holdings, get_opening_positions
 from app.api_requests import OpenHoldingRequest
 import sqlite3
+from portfolio import service
+from portfolio.models import HoldingValue
 
 router = APIRouter(prefix="/api/v1/holdings")
 
 @router.get("")
 def holdings():
-    return {"holdings" : service.get_holdings()}
+    return {"holdings" : get_holdings()}
 
 @router.get("/opening-positions")
 def opening_positions():
     try:
-        opening_positions_list = service.get_opening_positions()
+        opening_positions_list = get_opening_positions()
     except sqlite3.Error as e:
         raise HTTPException(
             status_code=500,
@@ -64,3 +66,31 @@ def open_holding(request: OpenHoldingRequest):
         
     
     return {"position_id" : position_id}
+
+@router.get("/value")
+def holding_value(position_id: int):
+    try:
+        holding_value = service.get_holding_value(position_id)
+
+        return {
+            "symbol" : holding_value.symbol,
+            "value" : str(holding_value.value),
+            "currency" : holding_value.currency,
+            "as_of" : holding_value.as_of,
+            "source" : holding_value.source
+        }
+    except InvalidPositionIdError as e:
+        raise HTTPException(
+            status_code=404,
+            detail="No saved holding has that ID."
+        )
+    except FinnHubAPIError as e:
+        raise HTTPException(
+            status_code=502,
+            detail="Finnhub couldn't provide a useable quote"
+        )
+    except sqlite3.Error as e:
+        raise HTTPException(
+            status_code=500,
+            detail="The database lookup failed"
+        )

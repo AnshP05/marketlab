@@ -136,7 +136,7 @@ with sqlite3.connect(sys.argv[1]) as connection:
     await until(`document.getElementById('position-count').textContent==='2'`);
     await enter('2', 'MAXQTY', '9223372036854.775807');
     await until(`document.getElementById('position-count').textContent==='3'`);
-    const rows = await evaluate(`Array.from(document.querySelectorAll('#opening-positions-list tr'),row=>Array.from(row.cells).filter(cell=>!cell.hasAttribute("data-quote-cell")).map(cell=>cell.textContent))`);
+    const rows = await evaluate(`Array.from(document.querySelectorAll('#opening-positions-list tr'),row=>Array.from(row.cells).filter(cell=>!cell.matches('[data-quote-cell], [data-value-position]')).map(cell=>cell.textContent))`);
     assert.deepEqual(rows, [['SYSYNTHA', 'Synthetic Brokerage', '2.25'], ['MAMAXQTY', 'Synthetic Brokerage', '9223372036854.775807'], ['MIMICRO', 'Synthetic Retirement', '0.000001']]);
     console.log('PASS: page-load accounts; selected IDs; exact submitted quantities through real POST/GET/SQLite.');
     await enter('2', 'SYNTHA', '2.25');
@@ -215,7 +215,7 @@ with sqlite3.connect(sys.argv[1]) as connection:
     await enter(createdAccountId, 'SYNTHNEW', '1.000001');
     await until(`document.getElementById('position-count').textContent==='4'`);
     await evaluate(`document.getElementById('portfolio-account').value=''; document.getElementById('portfolio-account').dispatchEvent(new Event('change'))`);
-    assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#opening-positions-list tr'),row=>Array.from(row.cells).filter(cell=>!cell.hasAttribute("data-quote-cell")).map(cell=>cell.textContent)).at(-1)`), ['SYSYNTHNEW', 'Synthetic Long-term', '1.000001']);
+    assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('#opening-positions-list tr'),row=>Array.from(row.cells).filter(cell=>!cell.matches('[data-quote-cell], [data-value-position]')).map(cell=>cell.textContent)).at(-1)`), ['SYSYNTHNEW', 'Synthetic Long-term', '1.000001']);
     console.log('PASS: blank-name precheck, exact POST payload, case-insensitive duplicate feedback, refreshed selectors and holding in new account.');
 
     await evaluate(`globalThis.fetch=(url,options)=>{
@@ -255,38 +255,32 @@ with sqlite3.connect(sys.argv[1]) as connection:
     assert connection.execute('SELECT quantity_micros FROM opening_positions ORDER BY id').fetchall()==[(2250000,), (1,), (9223372036854775807,), (1000001,)]
 `, database]);
     console.log('PASS: create/read-failure distinction, pending-submit guard, ambiguous-save feedback, new account/holding browser reload and real backend restart.');
-    // Frontend-only redesign: navigation/demo charts never request future APIs.
-    await evaluate(`globalThis.navigationRequests=[];globalThis.chartOriginalFetch=fetch;
-        globalThis.fetch=(...args)=>{navigationRequests.push(args[0]);return chartOriginalFetch(...args)};
-        document.querySelector('[data-nav="accounts"]').click()`);
+    // Existing views only. Navigation stays local and leaves the API state intact.
+    await evaluate(`globalThis.navigationRequests=[];globalThis.navigationOriginalFetch=fetch;
+        globalThis.fetch=(...args)=>{navigationRequests.push(args[0]);return navigationOriginalFetch(...args)};
+        document.querySelector('[data-go="accounts"]').click()`);
     assert.equal(await evaluate(`document.getElementById('page-title').textContent`), 'Investment accounts');
-    assert.ok(await evaluate(`document.querySelector('[data-views="overview accounts"]').hidden===false && document.querySelector('.metrics').hidden`));
-    await evaluate(`document.querySelector('[data-nav="holdings"]').click()`);
+    assert.equal(await evaluate(`document.activeElement.id`), 'account-name');
+    assert.ok(await evaluate(`!document.querySelector('[data-views="overview accounts"]').hidden && document.querySelector('.metrics').hidden`));
+    await evaluate(`document.querySelector('[data-go="holdings"]').click()`);
+    assert.equal(await evaluate(`document.activeElement.id`), 'ticker');
     assert.ok(await evaluate(`!document.getElementById('opening-form').closest('[data-views]').hidden`));
-    for (const view of ['activity', 'reports', 'settings']) {
-        await evaluate(`document.querySelector('[data-nav="${view}"]').click()`);
-        assert.match(await evaluate(`document.querySelector('[data-views="${view}"]').textContent`), /planned|not available|not connected/i);
-    }
-    await evaluate(`document.querySelector('[data-nav="overview"]').click()`);
-    await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
-    const beforeRange = await evaluate(`document.getElementById('chart-line').getAttribute('d')`);
-    await evaluate(`document.querySelector('[data-range="1M"]').click()`);
-    assert.notEqual(await evaluate(`document.getElementById('chart-line').getAttribute('d')`), beforeRange);
-    await evaluate(`document.getElementById('chart-scrubber').focus()`);
-    await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 });
-    await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 });
-    assert.equal(await evaluate(`document.getElementById('chart-scrubber').value`), '46');
-    assert.match(await evaluate(`document.getElementById('chart-scrubber').getAttribute('aria-valuetext')`), /Synthetic.*not your portfolio/);
-    await evaluate(`document.getElementById('toggle-demo').click()`);
-    assert.ok(await evaluate(`document.getElementById('demo-chart-body').hidden && !document.getElementById('chart-unavailable').hidden`));
-    await evaluate(`document.getElementById('toggle-demo').click(); document.querySelector('[data-range="1Y"]').click(); document.activeElement.blur()`);
-    assert.match(await evaluate(`document.getElementById('chart-title').parentElement.parentElement.textContent`), /Synthetic data only/);
-    assert.equal(await evaluate(`document.querySelector('.metric-value').textContent`), '—', 'Demo must not populate real portfolio value');
+    await evaluate(`document.querySelector('.skip').click()`);
+    assert.equal(await evaluate(`document.activeElement.id`), 'main');
+    assert.equal(await evaluate(`location.hash`), '#holdings');
+    await evaluate(`document.querySelector('[data-nav="overview"]').click(); document.querySelector('.brand').focus()`);
+    await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+    await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+    assert.ok(await evaluate(`document.activeElement.dataset.nav==='overview' && getComputedStyle(document.activeElement).outlineStyle==='solid'`));
+    assert.deepEqual(await evaluate(`Array.from(document.querySelectorAll('[data-nav]'), item=>item.dataset.nav)`), ['overview', 'holdings', 'accounts']);
+    assert.doesNotMatch(await evaluate(`document.querySelector('main').textContent`), /portfolio value|portfolio performance|illustrative timeline|demo preview/i);
     assert.equal(await evaluate(`document.getElementById('overview-accounts').textContent`), '4');
     assert.equal(await evaluate(`document.getElementById('overview-positions').textContent`), '4');
     assert.deepEqual(await evaluate(`navigationRequests`), []);
-    await evaluate(`globalThis.fetch=chartOriginalFetch`);
-    console.log('PASS: navigation/future states, keyboard chart exploration/ranges, reduced motion and explicit synthetic/actual separation; no future endpoint requests.');
+    await evaluate(`globalThis.fetch=navigationOriginalFetch;document.activeElement.blur()`);
+    await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('.button')).transitionDuration`), '0s');
+    console.log('PASS: supported views, keyboard focus, form shortcuts, real summary counts and reduced motion.');
     // Actual quote route/integration with the test-only HTTP provider above.
     await enter('7', 'SYNTHA', '0.000001');
     await until(`document.getElementById('position-count').textContent==='5'`);
@@ -305,7 +299,7 @@ with sqlite3.connect(sys.argv[1]) as connection:
     assert.equal(await evaluate(`quoteRequests.length`),4,'One request per unique ticker across accounts');
     assert.match(await evaluate(`document.getElementById('quote-status').textContent`),/4 updated, 0 unavailable/);
     assert.equal(await evaluate(`document.querySelectorAll('.quote-price').length`),savedRows);
-    assert.equal(await evaluate(`document.querySelector('.metric-value').textContent`),'—','Prices must not invent portfolio valuation');
+    assert.equal(await evaluate(`document.getElementById('overview-positions').textContent`), '5');
     await evaluate(`globalThis.fetch=async()=>new Response('synthetic non-JSON error',{status:500});document.querySelector('[data-quote-symbol="SYNTHA"]').click()`);
     await until(`document.getElementById('quote-status').dataset.state==='error'`);
     assert.match(await evaluate(`document.querySelector('[data-quote-cell="SYNTHA"] .quote-error').textContent`),/Showing previous quote/);
@@ -316,12 +310,68 @@ with sqlite3.connect(sys.argv[1]) as connection:
     await evaluate(`globalThis.fetch=quoteOriginalFetch;document.getElementById('refresh-all-prices').click()`);
     await until(`!document.getElementById('refresh-all-prices').disabled`);
     assert.equal(await evaluate(`document.querySelectorAll('.quantity').length`),savedRows);
-    console.log('PASS: real quote route with synthetic provider, exact price strings/as-of, shared ticker snapshots, deduplicated batch, stale-quote/error feedback and quota stop; no valuation invented.');
-    await screenshot('desktop.png');
-    await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
-    assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), 'Page overflows mobile viewport');
-    await screenshot('mobile.png');
-    console.log('PASS: failed-read recovery and desktop/mobile viewport checks.');
+    console.log('PASS: real quote route with synthetic provider, exact price strings/as-of, shared ticker snapshots, deduplicated batch, stale-quote/error feedback and quota stop.');
+
+    // The quote actions leave holding values blank. Valuation is explicitly requested per position.
+    assert.ok(await evaluate(`Array.from(document.querySelectorAll('.holding-value-amount'), amount=>amount.textContent).every(amount=>amount==='—')`));
+    const [firstValueId, secondValueId] = await evaluate(`Array.from(document.querySelectorAll('[data-quote-cell="SYNTHA"]'),
+        cell=>cell.parentElement.querySelector('[data-value-position]').dataset.valuePosition)`);
+    const firstValueCell = `document.getElementById('holding-value-${firstValueId}')`;
+    const secondValueCell = `document.getElementById('holding-value-${secondValueId}')`;
+    await evaluate(`globalThis.valueRequests=[];
+        globalThis.fetch=(url, options)=>{
+            if (!String(url).startsWith('/api/v1/holdings/value?')) return quoteOriginalFetch(url, options);
+            valueRequests.push(String(url));
+            if (valueRequests.length===1) return new Promise(resolve=>{globalThis.finishValue=()=>resolve(quoteOriginalFetch(url, options))});
+            return quoteOriginalFetch(url, options);
+        };
+        ${firstValueCell}.querySelector('button').click();
+        ${firstValueCell}.querySelector('button').click()`);
+    assert.equal(await evaluate(`valueRequests.length`), 1);
+    assert.equal(await evaluate(`${firstValueCell}.querySelector('button').getAttribute('aria-disabled')`), 'true');
+    await evaluate(`document.getElementById('portfolio-account').value='7';
+        document.getElementById('portfolio-account').dispatchEvent(new Event('change'));
+        finishValue()`);
+    assert.equal(await evaluate(firstValueCell), null, 'The first holding is hidden by the account filter');
+    await evaluate(`document.getElementById('portfolio-account').value='';
+        document.getElementById('portfolio-account').dispatchEvent(new Event('change'))`);
+    await until(`${firstValueCell}.classList.contains('has-value')`);
+    assert.equal(await evaluate(`${firstValueCell}.querySelector('.holding-value-amount').textContent`), 'USD 27.7777775277777777525');
+    assert.match(await evaluate(`${firstValueCell}.querySelector('.quote-meta').textContent`), /Finnhub.*As of/);
+    assert.equal(await evaluate(`${secondValueCell}.querySelector('.holding-value-amount').textContent`), '—');
+    await evaluate(`${secondValueCell}.querySelector('button').click()`);
+    await until(`${secondValueCell}.classList.contains('has-value')`);
+    assert.equal(await evaluate(`${secondValueCell}.querySelector('.holding-value-amount').textContent`), 'USD 0.00001234567890123456789');
+    assert.deepEqual(await evaluate(`valueRequests.map(url=>[...new URL(url,location.origin).searchParams])`),
+        [[['position_id', firstValueId]], [['position_id', secondValueId]]]);
+
+    await evaluate(`globalThis.fetch=async()=>new Response('provider unavailable',{status:502});
+        ${firstValueCell}.querySelector('button').click();
+        document.querySelector('.holding-value-cell:not(.has-value) button').click()`);
+    await until(`${firstValueCell}.querySelector('.status').dataset.state==='stale'
+        && document.querySelector('.holding-value-cell:not(.has-value) [data-state="error"]')`);
+    assert.match(await evaluate(`${firstValueCell}.querySelector('.status').textContent`), /Showing previous value/);
+    assert.equal(await evaluate(`${firstValueCell}.querySelector('.holding-value-amount').textContent`), 'USD 27.7777775277777777525');
+    assert.equal(await evaluate(`document.querySelector('.holding-value-cell:not(.has-value) .holding-value-amount').textContent`), '—');
+    await evaluate(`globalThis.fetch=quoteOriginalFetch;${firstValueCell}.querySelector('button').click()`);
+    await until(`${firstValueCell}.querySelector('button').getAttribute('aria-disabled')==='false'`);
+    console.log('PASS: position-ID valuation, pending duplicate guard, account filtering, exact fractional values and failure states.');
+    for (const [size, width, height] of [['desktop', 1440, 1100], ['tablet', 1024, 900], ['mobile', 390, 844]]) {
+        await cdp('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: size === 'mobile' });
+        for (const view of ['overview', 'holdings', 'accounts']) {
+            await evaluate(`document.querySelector('[data-nav="${view}"]').click()`);
+            assert.equal(await evaluate(`document.querySelector('[aria-current="page"]').dataset.nav`), view);
+            assert.ok(await evaluate(`document.documentElement.scrollWidth<=innerWidth`), `${view} overflows at ${width}px`);
+            if (view === 'holdings' && size === 'mobile') {
+                assert.ok(await evaluate(`(() => {
+                    const region = document.querySelector('.table-scroll');
+                    return region.tabIndex === 0 && region.scrollWidth > region.clientWidth;
+                })()`), 'The mobile holdings table must scroll within its region');
+            }
+            await screenshot(`${size}-${view}.png`);
+        }
+    }
+    console.log('PASS: all supported views at desktop, tablet and mobile widths.');
     // Empty workspace uses this same disposable fixture, never the owner's database.
     execFileSync(python, ['-B', '-c', `
 import sqlite3,sys

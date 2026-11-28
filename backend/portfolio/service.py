@@ -1,10 +1,16 @@
+from decimal import Decimal
+
 from repository.accounts import list_accounts, open_account as insert_account
 from portfolio.quantity import convert_shares_to_millionths, convert_millionths_to_shares
-from repository.holdings import insert_opening_position_in_database, list_opening_positions
-from portfolio.errors import InvalidAccountNameError, InvalidQuantityError
+from repository.holdings import insert_opening_position_in_database, list_opening_positions, get_holding
+from portfolio.errors import InvalidAccountNameError, InvalidQuantityError, InvalidPositionIdError
+from portfolio.models import Holding, Quote, HoldingValue
+from integrations.finnhub import fetch_quote
+
 
 def get_holdings():
     return []
+
 
 def get_accounts():
     return list_accounts()
@@ -33,3 +39,24 @@ def open_account(name):
     if not clean_name:
         raise InvalidAccountNameError("Account name cannot be blank")
     return insert_account(clean_name)
+
+def get_holding_value(position_id : int) -> HoldingValue:
+    holding = get_holding(position_id)
+    if holding is None:
+        raise InvalidPositionIdError("Invalid Position Id.")
+
+    symbol = holding.symbol
+    shares = Decimal(convert_millionths_to_shares(holding.quantity_micros))
+    position_id = holding.position_id
+
+    quote = fetch_quote(symbol)
+
+    holding_value = Decimal(quote.price * shares)
+
+    return HoldingValue(
+        symbol = symbol,
+        value = holding_value,
+        currency = quote.currency,
+        as_of = quote.as_of,
+        source = quote.source
+    )
